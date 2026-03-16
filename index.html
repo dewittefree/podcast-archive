@@ -299,27 +299,22 @@
         .trim();
       const plainDesc = normalizedDesc;
 
-      // Stop pattern: lookahead for next label keyword or end of string
-      // This handles RSS.com concatenating all fields onto one line
-      const stopPat = /(?=\s*(?:Speaker:|Series:|Topics:)|$)/i;
-      const speakerMatch = plainDesc.match(/Speaker:\s*(.*?)(?=\s*(?:Series:|Topics:)|$)/i);
-      const seriesMatch  = plainDesc.match(/Series:\s*(.*?)(?=\s*(?:Speaker:|Topics:)|$)/i);
-      const topicsMatch  = plainDesc.match(/Topics:\s*(.*?)(?=\s*(?:Speaker:|Series:)|$)/i);
+      // Speaker is stored in itunes:author field - not parsed from description
+      // Only Series: remains in description; Topics come from itunes:keywords
+      const seriesMatch = plainDesc.match(/Series:\s*(.*?)(?=\s*(?:Topics:)|$)/i);
+      const topicsMatch = plainDesc.match(/Topics:\s*(.*?)(?=\s*(?:Series:)|$)/i);
 
-      const descSpeaker = speakerMatch ? speakerMatch[1].trim() : '';
-      const descSeries  = seriesMatch
+      const descSeries = seriesMatch
         ? seriesMatch[1].split(',').map(s => s.trim()).filter(Boolean)
         : [];
-      const descTopics  = topicsMatch
+      const descTopics = topicsMatch
         ? topicsMatch[1].split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
-      // Strip Speaker:/Series:/Topics: and their values from the visible description
-      // Uses same lookahead approach to handle concatenated text (no line breaks)
+      // Strip Series:/Topics: from the visible description
       const description = plainDesc
-        .replace(/Speaker:\s*(.*?)(?=\s*(?:Series:|Topics:)|$)/gi, '')
-        .replace(/Series:\s*(.*?)(?=\s*(?:Speaker:|Topics:)|$)/gi, '')
-        .replace(/Topics:\s*(.*?)(?=\s*(?:Speaker:|Series:)|$)/gi, '')
+        .replace(/Series:\s*(.*?)(?=\s*(?:Topics:)|$)/gi, '')
+        .replace(/Topics:\s*(.*?)(?=\s*(?:Series:)|$)/gi, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
@@ -334,9 +329,8 @@
       const link = getText(item, 'link');
       const audioUrl = getAttr(item, 'enclosure', 'url');
 
-      // Parse speaker type: Guest-, Elder-, or staff by name
-      const rawSpeaker = descSpeaker
-        || getText(item, 'itunes:author')
+      // Speaker comes from itunes:author field only (set per-episode on RSS.com)
+      const rawSpeaker = getText(item, 'itunes:author')
         || getText(item, 'author')
         || getText(item, 'dc:creator')
         || '';
