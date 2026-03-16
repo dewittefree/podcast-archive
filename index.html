@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DEFC Sermon Archive</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f7f6f3;
+    --bg-tag: #f0ede8;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --text-light: #999;
+    --border: rgba(0,0,0,0.12);
+    --border-hover: rgba(0,0,0,0.28);
+    --accent: #2d5a8e;
+    --accent-bg: #edf2f8;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --bg-secondary: #2c2c2e;
+      --bg-tag: #3a3a3c;
+      --text: #f0f0f0;
+      --text-muted: #ababab;
+      --text-light: #6e6e73;
+      --border: rgba(255,255,255,0.12);
+      --border-hover: rgba(255,255,255,0.3);
+      --accent: #6fa3d8;
+      --accent-bg: #1e2d3e;
+    }
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 1.75rem;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .filters input,
+  .filters select {
+    flex: 1;
+    min-width: 150px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .filters input:focus,
+  .filters select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(45,90,142,0.1);
+  }
+
+  .filters input { min-width: 200px; }
+
+  .btn-clear {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: var(--font);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-clear:hover { background: var(--bg-secondary); }
+
+  .results-count {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .episode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .episode-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    transition: border-color 0.15s;
+  }
+  .episode-card:hover { border-color: var(--border-hover); }
+
+  .episode-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .episode-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+  .episode-title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .episode-title a:hover { color: var(--accent); }
+
+  .episode-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .meta-sep { color: var(--border-hover); }
+
+  .episode-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .episode-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    background: var(--bg-tag);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .btn-play {
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--font);
+    white-space: nowrap;
+  }
+  .btn-play:hover { background: var(--bg-secondary); }
+
+  .audio-player {
+    margin-top: 10px;
+  }
+  .audio-player audio {
+    width: 100%;
+    height: 36px;
+  }
+
+  .state-msg {
+    text-align: center;
+    padding: 3rem 0;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .error-msg {
+    color: #c0392b;
+    font-size: 14px;
+    padding: 1rem;
+    background: #fdf0ef;
+    border-radius: var(--radius-sm);
+    border: 1px solid #f5c6c2;
+  }
+
+  @media (max-width: 500px) {
+    body { padding: 1.25rem 1rem; }
+    .filters input, .filters select { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Sermon Archive</h1>
+<p class="subtitle">DeWitt Evangelical Free Church</p>
+
+<div class="filters">
+  <input type="text" id="search" placeholder="Search by title, speaker, or topic&hellip;" />
+  <select id="yearFilter"><option value="">All years</option></select>
+  <select id="authorFilter"><option value="">All speakers</option></select>
+  <select id="tagFilter"><option value="">All topics</option></select>
+  <button class="btn-clear" onclick="clearFilters()">Clear</button>
+</div>
+
+<div class="results-count" id="resultsCount"></div>
+
+<div class="episode-list" id="episodeList">
+  <div class="state-msg" id="statusMsg">Loading episodes&hellip;</div>
+</div>
+
+<script>
+(function () {
+  const FEED_URL = 'https://media.rss.com/dewittefc/feed.xml';
+  const PROXIES = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`
+  ];
+
+  let allEpisodes = [];
+  let openAudioIdx = null;
+
+  async function fetchFeed() {
+    for (let i = 0; i < PROXIES.length; i++) {
+      try {
+        const res = await fetch(PROXIES[i](FEED_URL));
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => null);
+        if (data && data.contents) return data.contents;
+        const text = await res.text().catch(() => null);
+        if (text) return text;
+      } catch (e) { /* try next */ }
+    }
+    throw new Error('Could not load the podcast feed. Please check your internet connection and try again.');
+  }
+
+  function getText(el, tag) {
+    const node = el.getElementsByTagName(tag)[0];
+    return node ? (node.textContent || '').trim() : '';
+  }
+
+  function getAttr(el, tag, attr) {
+    const node = el.getElementsByTagName(tag)[0];
+    return node ? (node.getAttribute(attr) || '').trim() : '';
+  }
+
+  function parseEpisodes(xmlStr) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr, 'application/xml');
+    const items = doc.getElementsByTagName('item');
+    const episodes = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const title = getText(item, 'title');
+      if (!title) continue;
+
+      const rawDesc = getText(item, 'description') || getText(item, 'itunes:summary') || '';
+      const description = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+      const pubDateStr = getText(item, 'pubDate');
+      const pubDate = pubDateStr ? new Date(pubDateStr) : null;
+      const year = pubDate ? pubDate.getFullYear().toString() : '';
+      const dateDisplay = pubDate
+        ? pubDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+
+      const link = getText(item, 'link');
+      const audioUrl = getAttr(item, 'enclosure', 'url');
+      const author = getText(item, 'itunes:author') || getText(item, 'author') || getText(item, 'dc:creator') || '';
+
+      const tags = [];
+      const cats = item.getElementsByTagName('category');
+      for (let c = 0; c < cats.length; c++) {
+        const t = cats[c].textContent.trim();
+        if (t && !tags.includes(t)) tags.push(t);
+      }
+      const keywords = item.getElementsByTagName('itunes:keywords')[0];
+      if (keywords) {
+        keywords.textContent.split(',').forEach(k => {
+          const t = k.trim();
+          if (t && !tags.includes(t)) tags.push(t);
+        });
+      }
+
+      episodes.push({ title, description, pubDate, year, dateDisplay, link, audioUrl, author, tags });
+    }
+
+    return episodes;
+  }
+
+  function populateSelect(id, values) {
+    const sel = document.getElementById(id);
+    values.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+
+  function populateFilters(episodes) {
+    const years   = [...new Set(episodes.map(e => e.year).filter(Boolean))].sort((a,b) => b - a);
+    const authors = [...new Set(episodes.map(e => e.author).filter(Boolean))].sort();
+    const tags    = [...new Set(episodes.flatMap(e => e.tags))].sort();
+    populateSelect('yearFilter', years);
+    populateSelect('authorFilter', authors);
+    populateSelect('tagFilter', tags);
+  }
+
+  function esc(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderEpisodes(episodes) {
+    const list = document.getElementById('episodeList');
+    const countEl = document.getElementById('resultsCount');
+    openAudioIdx = null;
+
+    if (episodes.length === 0) {
+      list.innerHTML = '<div class="state-msg">No episodes match your filters.</div>';
+      countEl.textContent = '';
+      return;
+    }
+
+    countEl.textContent = `${episodes.length} episode${episodes.length !== 1 ? 's' : ''}`;
+
+    list.innerHTML = episodes.map((ep, i) => `
+      <div class="episode-card">
+        <div class="episode-header">
+          <div style="flex:1;min-width:0;">
+            <div class="episode-title">
+              ${ep.link ? `<a href="${esc(ep.link)}" target="_blank" rel="noopener">${esc(ep.title)}</a>` : esc(ep.title)}
+            </div>
+            <div class="episode-meta">
+              ${ep.author ? `<span>${esc(ep.author)}</span>` : ''}
+              ${ep.author && ep.dateDisplay ? '<span class="meta-sep">&middot;</span>' : ''}
+              ${ep.dateDisplay ? `<span>${esc(ep.dateDisplay)}</span>` : ''}
+            </div>
+          </div>
+          ${ep.audioUrl ? `<button class="btn-play" id="playbtn-${i}" onclick="toggleAudio(${i})">&#9654; Play</button>` : ''}
+        </div>
+        ${ep.description ? `<div class="episode-desc">${esc(ep.description)}</div>` : ''}
+        ${ep.tags.length ? `<div class="episode-tags">${ep.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        ${ep.audioUrl ? `<div class="audio-player" id="player-${i}" style="display:none;"><audio controls src="${esc(ep.audioUrl)}"></audio></div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  window.toggleAudio = function(idx) {
+    const player = document.getElementById(`player-${idx}`);
+    const btn    = document.getElementById(`playbtn-${idx}`);
+    if (!player) return;
+
+    if (player.style.display === 'none') {
+      if (openAudioIdx !== null && openAudioIdx !== idx) {
+        const prev = document.getElementById(`player-${openAudioIdx}`);
+        const prevBtn = document.getElementById(`playbtn-${openAudioIdx}`);
+        if (prev) { prev.style.display = 'none'; const a = prev.querySelector('audio'); if (a) a.pause(); }
+        if (prevBtn) prevBtn.textContent = '\u25B6 Play';
+      }
+      player.style.display = 'block';
+      openAudioIdx = idx;
+      btn.textContent = '\u23F8 Hide';
+    } else {
+      player.style.display = 'none';
+      const a = player.querySelector('audio');
+      if (a) a.pause();
+      openAudioIdx = null;
+      btn.textContent = '\u25B6 Play';
+    }
+  };
+
+  function getFilters() {
+    return {
+      search: document.getElementById('search').value.toLowerCase().trim(),
+      year:   document.getElementById('yearFilter').value,
+      author: document.getElementById('authorFilter').value,
+      tag:    document.getElementById('tagFilter').value,
+    };
+  }
+
+  function applyFilters() {
+    const { search, year, author, tag } = getFilters();
+    let filtered = allEpisodes;
+    if (search) filtered = filtered.filter(e =>
+      e.title.toLowerCase().includes(search) ||
+      e.description.toLowerCase().includes(search) ||
+      e.author.toLowerCase().includes(search) ||
+      e.tags.some(t => t.toLowerCase().includes(search))
+    );
+    if (year)   filtered = filtered.filter(e => e.year === year);
+    if (author) filtered = filtered.filter(e => e.author === author);
+    if (tag)    filtered = filtered.filter(e => e.tags.includes(tag));
+    renderEpisodes(filtered);
+  }
+
+  window.clearFilters = function() {
+    document.getElementById('search').value = '';
+    document.getElementById('yearFilter').value = '';
+    document.getElementById('authorFilter').value = '';
+    document.getElementById('tagFilter').value = '';
+    applyFilters();
+  };
+
+  document.getElementById('search').addEventListener('input', applyFilters);
+  document.getElementById('yearFilter').addEventListener('change', applyFilters);
+  document.getElementById('authorFilter').addEventListener('change', applyFilters);
+  document.getElementById('tagFilter').addEventListener('change', applyFilters);
+
+  (async function init() {
+    try {
+      const xml = await fetchFeed();
+      allEpisodes = parseEpisodes(xml);
+      document.getElementById('statusMsg')?.remove();
+      if (allEpisodes.length === 0) {
+        document.getElementById('episodeList').innerHTML = '<div class="state-msg">No episodes found in the feed.</div>';
+        return;
+      }
+      populateFilters(allEpisodes);
+      renderEpisodes(allEpisodes);
+    } catch (e) {
+      document.getElementById('statusMsg').innerHTML = `<div class="error-msg">${e.message}</div>`;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
