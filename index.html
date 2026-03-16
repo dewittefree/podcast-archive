@@ -184,6 +184,11 @@
     border: 1px solid var(--border);
     white-space: nowrap;
   }
+  .tag-series {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent-bg);
+  }
 
   .btn-play {
     flex-shrink: 0;
@@ -238,6 +243,9 @@
   <input type="text" id="search" placeholder="Search by title, speaker, or topic&hellip;" />
   <select id="yearFilter"><option value="">All years</option></select>
   <select id="authorFilter"><option value="">All speakers</option></select>
+  <select id="guestFilter" style="display:none;"><option value="">All guests</option></select>
+  <select id="elderFilter" style="display:none;"><option value="">All elders</option></select>
+  <select id="seriesFilter"><option value="">All series</option></select>
   <select id="tagFilter"><option value="">All topics</option></select>
   <button class="btn-clear" onclick="clearFilters()">Clear</button>
 </div>
@@ -283,7 +291,28 @@
       if (!title) continue;
 
       const rawDesc = getText(item, 'description') || getText(item, 'itunes:summary') || '';
-      const description = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      const plainDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+      // Extract Speaker:, Series:, and Topics: lines from description
+      const speakerMatch = plainDesc.match(/Speaker:\s*([^\r\n]+)/i);
+      const seriesMatch  = plainDesc.match(/Series:\s*([^\r\n]+)/i);
+      const topicsMatch  = plainDesc.match(/Topics:\s*([^\r\n]+)/i);
+
+      const descSpeaker = speakerMatch ? speakerMatch[1].trim() : '';
+      const descSeries  = seriesMatch
+        ? seriesMatch[1].split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const descTopics  = topicsMatch
+        ? topicsMatch[1].split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      // Strip Speaker:/Series:/Topics: lines from the visible description
+      const description = plainDesc
+        .replace(/Speaker:\s*[^\r\n]+/gi, '')
+        .replace(/Series:\s*[^\r\n]+/gi, '')
+        .replace(/Topics:\s*[^\r\n]+/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
 
       const pubDateStr = getText(item, 'pubDate');
       const pubDate = pubDateStr ? new Date(pubDateStr) : null;
@@ -294,9 +323,36 @@
 
       const link = getText(item, 'link');
       const audioUrl = getAttr(item, 'enclosure', 'url');
-      const author = getText(item, 'itunes:author') || getText(item, 'author') || getText(item, 'dc:creator') || '';
 
-      const tags = [];
+      // Parse speaker type: Guest-, Elder-, or staff by name
+      const rawSpeaker = descSpeaker
+        || getText(item, 'itunes:author')
+        || getText(item, 'author')
+        || getText(item, 'dc:creator')
+        || '';
+
+      const STAFF = ['Jeff Niles', 'Jared Bennett'];
+      let author = rawSpeaker;
+      let speakerType = 'staff';
+      let speakerFullName = rawSpeaker;
+
+      if (/^Guest\s*-\s*/i.test(rawSpeaker)) {
+        speakerType = 'guest';
+        speakerFullName = rawSpeaker.replace(/^Guest\s*-\s*/i, '').trim();
+        author = speakerFullName;
+      } else if (/^Elder\s*-\s*/i.test(rawSpeaker)) {
+        speakerType = 'elder';
+        speakerFullName = rawSpeaker.replace(/^Elder\s*-\s*/i, '').trim();
+        author = speakerFullName;
+      } else if (!STAFF.includes(rawSpeaker) && rawSpeaker) {
+        speakerType = 'staff';
+      }
+
+      // Series from description
+      const series = [...descSeries];
+
+      // Topics: merge from description with any existing RSS categories/keywords
+      const tags = [...descTopics];
       const cats = item.getElementsByTagName('category');
       for (let c = 0; c < cats.length; c++) {
         const t = cats[c].textContent.trim();
@@ -310,7 +366,7 @@
         });
       }
 
-      episodes.push({ title, description, pubDate, year, dateDisplay, link, audioUrl, author, tags });
+      episodes.push({ title, description, pubDate, year, dateDisplay, link, audioUrl, author, speakerType, series, tags });
     }
 
     return episodes;
@@ -327,10 +383,34 @@
 
   function populateFilters(episodes) {
     const years   = [...new Set(episodes.map(e => e.year).filter(Boolean))].sort((a,b) => b - a);
-    const authors = [...new Set(episodes.map(e => e.author).filter(Boolean))].sort();
+    const seriesAll = [...new Set(episodes.flatMap(e => e.series))].sort();
     const tags    = [...new Set(episodes.flatMap(e => e.tags))].sort();
-    populateSelect('yearFilter', years);
-    populateSelect('authorFilter', authors);
+
+    // Build main speaker dropdown: staff by name, then Elders, then Guest Speaker
+    const staffSpeakers = [...new Set(
+      episodes.filter(e => e.speakerType === 'staff').map(e => e.author).filter(Boolean)
+    )].sort();
+    const hasElders = episodes.some(e => e.speakerType === 'elder');
+    const hasGuests = episodes.some(e => e.speakerType === 'guest');
+
+    const authorSel = document.getElementById('authorFilter');
+    staffSpeakers.forEach(name => {
+      const o = document.createElement('option'); o.value = name; o.textContent = name; authorSel.appendChild(o);
+    });
+    if (hasElders) {
+      const o = document.createElement('option'); o.value = '__elders__'; o.textContent = 'Elders'; authorSel.appendChild(o);
+    }
+    if (hasGuests) {
+      const o = document.createElement('option'); o.value = '__guests__'; o.textContent = 'Guest Speaker'; authorSel.appendChild(o);
+    }
+
+    // Populate secondary dropdowns
+    const guestNames = [...new Set(episodes.filter(e => e.speakerType === 'guest').map(e => e.author).filter(Boolean))].sort();
+    const elderNames = [...new Set(episodes.filter(e => e.speakerType === 'elder').map(e => e.author).filter(Boolean))].sort();
+    populateSelect('guestFilter', guestNames);
+    populateSelect('elderFilter', elderNames);
+
+    populateSelect('seriesFilter', seriesAll);
     populateSelect('tagFilter', tags);
   }
 
@@ -359,7 +439,7 @@
               ${ep.link ? `<a href="${esc(ep.link)}" target="_blank" rel="noopener">${esc(ep.title)}</a>` : esc(ep.title)}
             </div>
             <div class="episode-meta">
-              ${ep.author ? `<span>${esc(ep.author)}</span>` : ''}
+              ${ep.author ? `<span>${esc(ep.author)}${ep.speakerType === 'guest' ? ' <span style="font-size:11px;opacity:0.7;">(Guest)</span>' : ep.speakerType === 'elder' ? ' <span style="font-size:11px;opacity:0.7;">(Elder)</span>' : ''}</span>` : ''}
               ${ep.author && ep.dateDisplay ? '<span class="meta-sep">&middot;</span>' : ''}
               ${ep.dateDisplay ? `<span>${esc(ep.dateDisplay)}</span>` : ''}
             </div>
@@ -367,7 +447,10 @@
           ${ep.audioUrl ? `<button class="btn-play" id="playbtn-${i}" onclick="toggleAudio(${i})">&#9654; Play</button>` : ''}
         </div>
         ${ep.description ? `<div class="episode-desc">${esc(ep.description)}</div>` : ''}
-        ${ep.tags.length ? `<div class="episode-tags">${ep.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        ${(ep.series.length || ep.tags.length) ? `<div class="episode-tags">
+          ${ep.series.map(s => `<span class="tag tag-series">${esc(s)}</span>`).join('')}
+          ${ep.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}
+        </div>` : ''}
         ${ep.audioUrl ? `<div class="audio-player" id="player-${i}" style="display:none;"><audio controls src="${esc(ep.audioUrl)}"></audio></div>` : ''}
       </div>
     `).join('');
@@ -402,21 +485,34 @@
       search: document.getElementById('search').value.toLowerCase().trim(),
       year:   document.getElementById('yearFilter').value,
       author: document.getElementById('authorFilter').value,
+      guest:  document.getElementById('guestFilter').value,
+      elder:  document.getElementById('elderFilter').value,
+      series: document.getElementById('seriesFilter').value,
       tag:    document.getElementById('tagFilter').value,
     };
   }
 
   function applyFilters() {
-    const { search, year, author, tag } = getFilters();
+    const { search, year, author, guest, elder, series, tag } = getFilters();
     let filtered = allEpisodes;
     if (search) filtered = filtered.filter(e =>
       e.title.toLowerCase().includes(search) ||
       e.description.toLowerCase().includes(search) ||
       e.author.toLowerCase().includes(search) ||
+      e.series.some(s => s.toLowerCase().includes(search)) ||
       e.tags.some(t => t.toLowerCase().includes(search))
     );
-    if (year)   filtered = filtered.filter(e => e.year === year);
-    if (author) filtered = filtered.filter(e => e.author === author);
+    if (year) filtered = filtered.filter(e => e.year === year);
+    if (author === '__guests__') {
+      filtered = filtered.filter(e => e.speakerType === 'guest');
+    } else if (author === '__elders__') {
+      filtered = filtered.filter(e => e.speakerType === 'elder');
+    } else if (author) {
+      filtered = filtered.filter(e => e.author === author);
+    }
+    if (guest) filtered = filtered.filter(e => e.speakerType === 'guest' && e.author === guest);
+    if (elder) filtered = filtered.filter(e => e.speakerType === 'elder' && e.author === elder);
+    if (series) filtered = filtered.filter(e => e.series.includes(series));
     if (tag)    filtered = filtered.filter(e => e.tags.includes(tag));
     renderEpisodes(filtered);
   }
@@ -425,13 +521,30 @@
     document.getElementById('search').value = '';
     document.getElementById('yearFilter').value = '';
     document.getElementById('authorFilter').value = '';
+    document.getElementById('guestFilter').value = '';
+    document.getElementById('guestFilter').style.display = 'none';
+    document.getElementById('elderFilter').value = '';
+    document.getElementById('elderFilter').style.display = 'none';
+    document.getElementById('seriesFilter').value = '';
     document.getElementById('tagFilter').value = '';
     applyFilters();
   };
 
   document.getElementById('search').addEventListener('input', applyFilters);
   document.getElementById('yearFilter').addEventListener('change', applyFilters);
-  document.getElementById('authorFilter').addEventListener('change', applyFilters);
+  document.getElementById('authorFilter').addEventListener('change', function() {
+    const val = this.value;
+    const guestSel = document.getElementById('guestFilter');
+    const elderSel = document.getElementById('elderFilter');
+    guestSel.style.display = (val === '__guests__') ? '' : 'none';
+    elderSel.style.display = (val === '__elders__') ? '' : 'none';
+    guestSel.value = '';
+    elderSel.value = '';
+    applyFilters();
+  });
+  document.getElementById('guestFilter').addEventListener('change', applyFilters);
+  document.getElementById('elderFilter').addEventListener('change', applyFilters);
+  document.getElementById('seriesFilter').addEventListener('change', applyFilters);
   document.getElementById('tagFilter').addEventListener('change', applyFilters);
 
   (async function init() {
