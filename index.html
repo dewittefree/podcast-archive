@@ -291,7 +291,9 @@
       if (!title) continue;
 
       const rawDesc = getText(item, 'description') || getText(item, 'itunes:summary') || '';
-      const plainDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      // Convert <br> tags to newlines before stripping HTML so tag lines stay separated
+      const normalizedDesc = rawDesc.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+      const plainDesc = normalizedDesc;
 
       // Extract Speaker:, Series:, and Topics: lines from description
       const speakerMatch = plainDesc.match(/Speaker:\s*([^\r\n]+)/i);
@@ -311,6 +313,7 @@
         .replace(/Speaker:\s*[^\r\n]+/gi, '')
         .replace(/Series:\s*[^\r\n]+/gi, '')
         .replace(/Topics:\s*[^\r\n]+/gi, '')
+        .replace(/[\r\n]+/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
 
