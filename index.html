@@ -250,27 +250,15 @@
 
 <script>
 (function () {
-  const FEED_URL = 'https://media.rss.com/dewittefc/feed.xml';
-  const PROXIES = [
-    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    u => `https://corsproxy.io/?${encodeURIComponent(u)}`
-  ];
+  const PROXY_URL = 'https://defc-rss-proxy.dewitt-e-free.workers.dev';
 
   let allEpisodes = [];
   let openAudioIdx = null;
 
   async function fetchFeed() {
-    for (let i = 0; i < PROXIES.length; i++) {
-      try {
-        const res = await fetch(PROXIES[i](FEED_URL));
-        if (!res.ok) continue;
-        const data = await res.json().catch(() => null);
-        if (data && data.contents) return data.contents;
-        const text = await res.text().catch(() => null);
-        if (text) return text;
-      } catch (e) { /* try next */ }
-    }
-    throw new Error('Could not load the podcast feed. Please check your internet connection and try again.');
+    const res = await fetch(PROXY_URL);
+    if (!res.ok) throw new Error('Could not load the podcast feed (HTTP ' + res.status + ').');
+    return await res.text();
   }
 
   function getText(el, tag) {
