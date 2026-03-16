@@ -291,14 +291,20 @@
       if (!title) continue;
 
       const rawDesc = getText(item, 'description') || getText(item, 'itunes:summary') || '';
-      // Convert <br> tags to newlines before stripping HTML so tag lines stay separated
-      const normalizedDesc = rawDesc.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+      // Normalise: br/p tags to newlines, strip remaining HTML
+      const normalizedDesc = rawDesc
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
       const plainDesc = normalizedDesc;
 
-      // Extract Speaker:, Series:, and Topics: lines from description
-      const speakerMatch = plainDesc.match(/Speaker:\s*([^\r\n]+)/i);
-      const seriesMatch  = plainDesc.match(/Series:\s*([^\r\n]+)/i);
-      const topicsMatch  = plainDesc.match(/Topics:\s*([^\r\n]+)/i);
+      // Stop pattern: lookahead for next label keyword or end of string
+      // This handles RSS.com concatenating all fields onto one line
+      const stopPat = /(?=\s*(?:Speaker:|Series:|Topics:)|$)/i;
+      const speakerMatch = plainDesc.match(/Speaker:\s*(.*?)(?=\s*(?:Series:|Topics:)|$)/i);
+      const seriesMatch  = plainDesc.match(/Series:\s*(.*?)(?=\s*(?:Speaker:|Topics:)|$)/i);
+      const topicsMatch  = plainDesc.match(/Topics:\s*(.*?)(?=\s*(?:Speaker:|Series:)|$)/i);
 
       const descSpeaker = speakerMatch ? speakerMatch[1].trim() : '';
       const descSeries  = seriesMatch
@@ -308,11 +314,12 @@
         ? topicsMatch[1].split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
-      // Strip Speaker:/Series:/Topics: lines from the visible description
+      // Strip Speaker:/Series:/Topics: and their values from the visible description
+      // Uses same lookahead approach to handle concatenated text (no line breaks)
       const description = plainDesc
-        .replace(/Speaker:\s*[^\r\n]+/gi, '')
-        .replace(/Series:\s*[^\r\n]+/gi, '')
-        .replace(/Topics:\s*[^\r\n]+/gi, '')
+        .replace(/Speaker:\s*(.*?)(?=\s*(?:Series:|Topics:)|$)/gi, '')
+        .replace(/Series:\s*(.*?)(?=\s*(?:Speaker:|Topics:)|$)/gi, '')
+        .replace(/Topics:\s*(.*?)(?=\s*(?:Speaker:|Series:)|$)/gi, '')
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
